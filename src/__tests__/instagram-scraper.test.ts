@@ -50,4 +50,56 @@ describe("InstagramScraper", () => {
       expect(profile.posts.length).toBeLessThanOrEqual(maxPosts);
     }
   }, 30000);
+
+  test("should scrape 12 posts from a profile", async () => {
+    const scraper = new InstagramScraper();
+    const profile = await scraper.scrapeProfile("instagram", { maxPosts: 12 });
+
+    expect(profile).not.toBeNull();
+    expect(profile?.posts).toBeDefined();
+    expect(profile?.posts.length).toBe(12);
+
+    // Verify each post has the required data
+    profile?.posts.forEach((post) => {
+      expect(post).toMatchObject({
+        imageUrl: expect.any(String),
+        caption: expect.any(String),
+        likeCount: expect.any(String),
+        commentCount: expect.any(String),
+        timestamp: expect.any(String),
+      });
+
+      // Verify imageUrl is a valid URL
+      expect(post.imageUrl).toMatch(/^https?:\/\/.+/);
+
+      // Verify timestamp is a valid ISO date string
+      expect(new Date(post.timestamp).toString()).not.toBe("Invalid Date");
+    });
+  }, 30000);
+
+  test("should scrape more than 12 posts from a profile", async () => {
+    const scraper = new InstagramScraper();
+    const profile = await scraper.scrapeProfile("instagram", { maxPosts: 24 });
+
+    expect(profile).not.toBeNull();
+    expect(profile?.posts).toBeDefined();
+    expect(profile?.posts.length).toBeGreaterThan(12);
+
+    // Verify each post has the required data
+    profile?.posts.forEach((post) => {
+      expect(post).toMatchObject({
+        imageUrl: expect.any(String),
+        caption: expect.any(String),
+        likeCount: expect.any(String),
+        commentCount: expect.any(String),
+        timestamp: expect.any(String),
+      });
+
+      // Verify imageUrl is a valid URL
+      expect(post.imageUrl).toMatch(/^https?:\/\/.+/);
+
+      // Verify timestamp is a valid ISO date string
+      expect(new Date(post.timestamp).toString()).not.toBe("Invalid Date");
+    });
+  }, 45000); // Increased timeout for scrolling
 });

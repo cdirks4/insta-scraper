@@ -34,9 +34,9 @@ export class InstagramScraper {
       });
 
       const page = await browser.newPage();
-      await page.setViewport({ width: 1920, height: 1080 });
+      await page.setViewport({ width: 390, height: 844 });
       await page.setUserAgent(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
       );
 
       console.log(
@@ -70,7 +70,10 @@ export class InstagramScraper {
       );
 
       const profileData = await page.evaluate(
-        (profileUsername: string, maxPosts: number): InstagramProfile => {
+        async (
+          profileUsername: string,
+          maxPosts: number
+        ): Promise<InstagramProfile> => {
           const header = document.querySelector("header section");
 
           const fullName = (() => {
@@ -126,38 +129,91 @@ export class InstagramScraper {
           console.log(`  - Followers: ${followers}`);
           console.log(`  - Following: ${following}`);
 
-          const articles = document.querySelectorAll("article");
+          const getPostElements = () => document.querySelectorAll("div._aagu");
+          let postsDoc = getPostElements();
+
+          // Scroll until we get enough posts or can't load more
+          const maxScrollAttempts = Math.ceil(maxPosts / 12) + 2; // Add buffer for safety
+          let scrollAttempts = 0;
+
+          while (
+            postsDoc.length < maxPosts &&
+            scrollAttempts < maxScrollAttempts
+          ) {
+            // Scroll to the last post
+            const lastPost = Array.from(postsDoc)[postsDoc.length - 1];
+            lastPost?.scrollIntoView();
+
+            // Wait for potential new posts to load
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+
+            // Handle login popup if it appears
+            const closeButton = document.querySelector("button._a9--._a9_1");
+            if (closeButton instanceof HTMLElement) {
+              closeButton.click();
+              // Wait for popup to disappear
+              await new Promise((resolve) => setTimeout(resolve, 500));
+            }
+
+            // Update posts collection
+            postsDoc = getPostElements();
+            scrollAttempts++;
+
+            console.log(
+              `[Page] Scroll attempt ${scrollAttempts}: Found ${postsDoc.length} posts`
+            );
+          }
+
           console.log(
-            `[Page] Found ${articles.length} posts for ${profileUsername}`
+            `[Page] Found ${postsDoc.length} posts for ${profileUsername}`
           );
 
-          const processedPosts = Array.from(articles)
+          const processedPosts = Array.from(postsDoc)
             .slice(0, maxPosts)
-            .map((article, index) => {
-              const img =
-                article.querySelector("img[class*='x5yr21d']") ||
-                article.querySelector("img[alt*='Photo by']") ||
-                article.querySelector("img:not([alt=''])");
+            .map((post, index) => {
+              // Get the image from the _aagu div
+              const img = post.querySelector("img.x5yr21d");
 
-              const captionElement = article.querySelector(
-                'div[class*="_a9zs"], div[class*="x7f6e4"], div._a9zr'
+              // Find the parent article
+              const article = post.closest("article");
+
+              // Get caption from the span element after the image
+              let caption = "";
+              const captionElement = article?.querySelector(
+                "div._aagv + div span.x1lliihq.x193iq5w"
               );
-              const caption = captionElement?.textContent?.trim() || "";
+              if (captionElement?.textContent) {
+                caption = captionElement.textContent.trim();
+              }
 
-              const likeElement = article.querySelector(
-                'a[class*="_abl-"] span, span[class*="_aauw"]'
+              // Get engagement data from the article footer
+              const footer = article?.querySelector("div._ae2s, div._aabd");
+
+              const likeElement = footer?.querySelector(
+                'span._aacl, span[class*="_aauw"]'
               );
               const likeCount =
                 likeElement?.textContent?.replace(/[^\d,]/g, "") || "0";
 
-              const commentElement = article.querySelector(
-                'span[class*="_ae5q"], span[class*="xdj266r"]'
+              const commentElement = footer?.querySelector(
+                'span._ae5q, span[class*="xdj266r"]'
               );
               const commentCount =
                 commentElement?.textContent?.replace(/[^\d,]/g, "") || "0";
 
-              const timeElement = article.querySelector("time");
-              const timestamp = timeElement?.getAttribute("datetime") || "";
+              // Get timestamp from the time element or img alt text
+              let timestamp = "";
+              const timeElement = article?.querySelector("time");
+              if (timeElement?.getAttribute("datetime")) {
+                timestamp = timeElement.getAttribute("datetime") || "";
+              } else {
+                // Extract date from alt text as fallback
+                const altText = img?.getAttribute("alt") || "";
+                const dateMatch = altText.match(/on ([A-Za-z]+ \d+, \d{4})/);
+                if (dateMatch) {
+                  timestamp = new Date(dateMatch[1]).toISOString();
+                }
+              }
 
               console.log(`[Page] Post ${index + 1} details:`);
               console.log(

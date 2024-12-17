@@ -19,7 +19,11 @@ export interface InstagramProfile {
 }
 
 export interface ScraperOptions {
-  maxScrolls?: number;
   maxPosts?: number;
+  maxScrolls?: number;
   headless?: boolean;
+  minDelay?: number;
+  maxDelay?: number;
+  scrollDelay?: number;
+  proxy?: string;
 }
