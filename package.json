@@ -1,6 +1,6 @@
 {
   "name": "@cdirks4/insta-scraper",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Instagram profile scraper using Puppeteer",
   "main": "dist/scraper.js",
   "types": "dist/scraper.d.ts",
